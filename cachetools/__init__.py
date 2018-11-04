@@ -110,3 +110,30 @@ def cachedmethod(cache, key=keys.hashkey, lock=None):
                 return v
         return _update_wrapper(wrapper, method)
     return decorator
+
+
+# TODO: lock(?), Python < 3.5 compatibility, unit tests, ...
+def cachedasync(cache, key=keys.hashkey):
+    """Decorator to wrap a coroutine function with a memoizing function
+    that saves results in a cache.
+
+    """
+    def decorator(func):
+        if cache is None:
+            async def wrapper(*args, **kwargs):
+                return await func(*args, **kwargs)
+        else:
+            async def wrapper(*args, **kwargs):
+                k = key(*args, **kwargs)
+                try:
+                    return cache[k]
+                except KeyError:
+                    pass  # key not found
+                v = await func(*args, **kwargs)
+                try:
+                    cache[k] = v
+                except ValueError:
+                    pass  # value too large
+                return v
+        return _update_wrapper(wrapper, func)
+    return decorator
