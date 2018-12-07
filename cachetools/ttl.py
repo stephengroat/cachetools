@@ -57,13 +57,14 @@ class _Timer(object):
 class TTLCache(Cache):
     """LRU Cache implementation with per-item time-to-live (TTL) value."""
 
-    def __init__(self, maxsize, ttl, timer=time.time, getsizeof=None):
+    def __init__(self, maxsize, ttl, timer=time.time, getsizeof=None, cb=None):
         Cache.__init__(self, maxsize, getsizeof)
         self.__root = root = _Link()
         root.prev = root.next = root
         self.__links = collections.OrderedDict()
         self.__timer = _Timer(timer)
         self.__ttl = ttl
+        self.__cb = cb
 
     def __contains__(self, key):
         try:
@@ -166,12 +167,16 @@ class TTLCache(Cache):
         curr = root.next
         links = self.__links
         cache_delitem = Cache.__delitem__
+        expired = False
         while curr is not root and curr.expire < time:
             cache_delitem(self, curr.key)
             del links[curr.key]
             next = curr.next
             curr.unlink()
             curr = next
+            expired = True
+        if expired and self.__cb is not None:
+            self.__cb()
 
     def clear(self):
         with self.__timer as time:
